@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="mr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dharavi Chi Kuldevi | Vargani</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#fff8ef;color:#24170f}
+header{background:linear-gradient(135deg,#8b160c,#d77b16);color:#fff;padding:28px 18px;text-align:center}
+header h1{margin:0;font-size:30px}header p{margin:7px 0 0;opacity:.95}
+nav{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:12px;background:#35140e}
+nav button{border:0;border-radius:22px;padding:10px 15px;background:#fff;color:#35140e;font-weight:700;cursor:pointer}
+main{max-width:900px;margin:auto;padding:20px}.card{background:#fff;border-radius:18px;padding:20px;margin:14px 0;box-shadow:0 6px 22px #00000012}
+.hero{text-align:center;padding:38px 20px}.hero h2{font-size:32px;margin:5px}.hero .year{font-weight:800;color:#a63711}
+label{display:block;font-weight:700;margin:12px 0 6px}input,select{width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:16px}
+.btn{border:0;border-radius:10px;padding:12px 18px;background:#b72a13;color:#fff;font-weight:800;cursor:pointer;margin-top:15px}
+.btn.secondary{background:#5a463d}.hidden{display:none}.msg{padding:12px;border-radius:10px;margin-top:12px;background:#fff0d9}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat{padding:15px;background:#fff3df;border-radius:12px;text-align:center}.stat b{display:block;font-size:22px}
+table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px solid #eee;text-align:left;font-size:14px}
+@media(max-width:600px){.stats{grid-template-columns:1fr}.hero h2{font-size:26px}}
+</style>
+</head>
+<body>
+<header><h1>🙏 धारावीची कुलदेवी</h1><p>Om Mitra Mandal • सार्वजनिक नवरात्रोत्सव मंडळ</p></header>
+<nav>
+<button onclick="show('home')">मुख्यपृष्ठ</button>
+<button onclick="show('donate')">वर्गणी जमा करा</button>
+<button onclick="show('admin')">Admin Login</button>
+</nav>
+<main>
+<section id="home">
+<div class="card hero"><div class="year">२६ वे वर्ष • Since 2000</div><h2>धारावीची कुलदेवी</h2><p>नवरात्रोत्सवासाठी आपली वर्गणी प्रेमपूर्वक जमा करा.</p><button class="btn" onclick="show('donate')">वर्गणी जमा करा</button></div>
+</section>
+
+<section id="donate" class="hidden">
+<div class="card"><h2>💰 वर्गणी जमा करा</h2>
+<form id="donationForm">
+<label>नाव *</label><input id="name" required>
+<label>मोबाईल नंबर *</label><input id="mobile" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" required>
+<label>पत्ता</label><input id="address">
+<label>वर्गणी रक्कम (₹) *</label><input id="amount" type="number" min="1" required>
+<label>Payment Mode *</label><select id="mode"><option>Cash</option><option>UPI</option></select>
+<button class="btn" type="submit">वर्गणी जमा नोंदवा</button>
+</form><div id="donationMsg"></div></div>
+</section>
+
+<section id="admin" class="hidden">
+<div id="loginBox" class="card"><h2>🔐 Admin Login</h2>
+<label>Email</label><input id="email" type="email">
+<label>Password</label><input id="password" type="password">
+<button class="btn" onclick="login()">Login</button><div id="loginMsg"></div></div>
+<div id="dashboard" class="hidden">
+<div class="card"><h2>📊 Admin Dashboard</h2><button class="btn secondary" onclick="logout()">Logout</button>
+<div class="stats"><div class="stat">वर्गणी<b id="total">₹0</b></div><div class="stat">खर्च<b id="expenses">₹0</b></div><div class="stat">शिल्लक<b id="balance">₹0</b></div></div></div>
+<div class="card"><h3>➕ खर्च नोंदवा</h3><label>खर्च रक्कम</label><input id="expenseAmount" type="number" min="1"><label>तपशील</label><input id="expenseNote"><button class="btn" onclick="addExpense()">खर्च Save करा</button></div>
+<div class="card"><h3>👥 वर्गणी नोंदी</h3><div style="overflow:auto"><table><thead><tr><th>Receipt</th><th>नाव</th><th>रक्कम</th><th>Mode</th><th>Date</th></tr></thead><tbody id="donationRows"></tbody></table></div></div>
+</div></section>
+</main>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import {getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+import {getFirestore, collection, addDoc, getDocs, query, orderBy, doc, runTransaction, serverTimestamp} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+const firebaseConfig={apiKey:"AIzaSyDY1QhF43LVXzDIrR_KdIyLTyXj6GPiB2U",authDomain:"dharavi-chi-kuldevi.firebaseapp.com",projectId:"dharavi-chi-kuldevi",storageBucket:"dharavi-chi-kuldevi.firebasestorage.app",messagingSenderId:"270405047209",appId:"1:270405047209:web:d2260a5d8f82afbd692ab8",measurementId:"G-BK21ZQZZC7"};
+const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
+window.show=id=>{for(const s of ['home','donate','admin'])document.getElementById(s).classList.toggle('hidden',s!==id)};
+window.login=async()=>{try{await signInWithEmailAndPassword(auth,email.value,password.value);loginMsg.textContent='Login successful ✅'}catch(e){loginMsg.textContent='Login failed: '+e.message}};
+window.logout=()=>signOut(auth);
+onAuthStateChanged(auth,async user=>{if(user){loginBox.classList.add('hidden');dashboard.classList.remove('hidden');await refresh()}else{loginBox.classList.remove('hidden');dashboard.classList.add('hidden')}});
+async function nextReceipt(){
+ const c=doc(db,'Counters','Donation');
+ return await runTransaction(db,async t=>{const s=await t.get(c);const n=(s.exists()?Number(s.data().lastReceiptNo||0):0)+1;t.set(c,{lastReceiptNo:n},{merge:true});return n});
+}
+donationForm.addEventListener('submit',async e=>{e.preventDefault();try{
+ const n=await nextReceipt(); await addDoc(collection(db,'Donation'),{Name:name.value,Mobile:mobile.value,Address:address.value,Amount:Number(amount.value),PaymentMode:mode.value,ReceiptNo:n,Date:new Date().toISOString(),createdAt:serverTimestamp()});
+ donationMsg.innerHTML='<div class="msg">वर्गणी नोंद झाली ✅ Receipt No: <b>'+n+'</b></div>'; donationForm.reset();
+}catch(err){donationMsg.innerHTML='<div class="msg">Error: '+err.message+'</div>'}});
+async function refresh(){
+ let totalAmt=0, rows=''; const snap=await getDocs(query(collection(db,'Donation'),orderBy('createdAt','desc')));
+ snap.forEach(x=>{const d=x.data();totalAmt+=Number(d.Amount||0);rows+=`<tr><td>${d.ReceiptNo||'-'}</td><td>${d.Name||'-'}</td><td>₹${d.Amount||0}</td><td>${d.PaymentMode||'-'}</td><td>${d.Date?new Date(d.Date).toLocaleDateString('en-IN'):'-'}</td></tr>`});
+ donationRows.innerHTML=rows||'<tr><td colspan="5">No records</td></tr>'; total.textContent='₹'+totalAmt.toLocaleString('en-IN');
+ const ex=await getDocs(collection(db,'Expenses'));let exAmt=0;ex.forEach(x=>exAmt+=Number(x.data().Amount||0));expenses.textContent='₹'+exAmt.toLocaleString('en-IN');balance.textContent='₹'+(totalAmt-exAmt).toLocaleString('en-IN');
+}
+window.addExpense=async()=>{const a=Number(expenseAmount.value);if(!a)return;await addDoc(collection(db,'Expenses'),{Amount:a,Note:expenseNote.value,Date:new Date().toISOString(),createdAt:serverTimestamp()});expenseAmount.value='';expenseNote.value='';await refresh()};
+</script>
+</body></html>
